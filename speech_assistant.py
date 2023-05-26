@@ -9,14 +9,14 @@ import openai
 import os
 import itertools
 import threading
-import time
+import time 
 from colorama import init, Fore
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain import ConversationChain, LLMChain, PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.schema import SystemMessage
 from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
-from langchain.callbacks.base import BaseCallbackHandler
 from elevenlabs import generate, voices, set_api_key
 from elevenlabs import stream as xi_stream
 from query_analysis import prep_input
@@ -33,7 +33,7 @@ RECORD_SECONDS = 5
 init()
 
 # Set API Key for Eleven Labs
-
+set_api_key(os.getenv("XILABS_API_KEY"))
 # Cache the voices
 voices()
 
@@ -48,6 +48,12 @@ is_running_lock = threading.Lock()
 is_playing = False
 is_recording = False
 is_running = False
+
+# Global variables for recording
+frames = []
+p = None
+stream = None
+recording_done = threading.Event()
 
 # Spinner for loading symbol
 def spinning_cursor():
@@ -70,17 +76,20 @@ def generate_and_play(text, voice):
     audio_queue.put(audio)
 
 def threaded_generate_and_play(text, voice):
-    threading.Thread(target=generate_and_play, args=(text, voice)).start()
+    threading.Thread(target=generate_and_play, args=(text, voice), daemon=True).start()
 
 def is_playing_audio():
+    global is_playing
     with is_playing_lock:
         return is_playing
 
 def is_recording_audio():
+    global is_recording
     with is_recording_lock:
         return is_recording
 
 def is_running_llm():
+    global is_running
     with is_running_lock:
         return is_running_llm
 
@@ -95,9 +104,6 @@ def play_audio_from_queue():
             with is_playing_lock:
                 is_playing = False
         audio_queue.task_done()
-
-# Start the audio playback thread
-threading.Thread(target=play_audio_from_queue, daemon=True).start()
 
 def display_spinning_icon():
     while True:
@@ -114,25 +120,88 @@ def display_spinning_icon():
         else:
             time.sleep(0.1)
 
-# Start the spinning icon display thread
-threading.Thread(target=display_spinning_icon, daemon=True).start()
+def send_to_streamlit_queue():
+    pass
+
+
+class XILabsOutputHandler():
+    def __init__(self, voice):
+        self.voice = voice
+        self.token_buffer = []
+        self.sentence_buffer = ""
+        self.code_buffer = ""
+        self.is_code = False
+        self.is_code_end = False
+        self.is_incomplete_delimiter = False
+        self.num_curr_ticks_delimiter = 0
+        
+    def send_token(self, token):
+        if token.startswith("`"): # Check if token starts with a backtick
+            if self.num_curr_ticks_delimiter == 0: # Check if it's a new delimiter
+                self.is_incomplete_delimiter = True # Set incomplete delimiter flag
+                self.num_curr_ticks_delimiter = len(token) # Update current ticks
+            else: # If we're in the middle of processing an incomplete delimiter
+                self.num_curr_ticks_delimiter += len(token) # Update current ticks
+            # Check if we've completed a code block delimiter
+            if self.num_curr_ticks_delimiter >=3:
+                self.is_incomplete_delimiter = False
+                self.num_curr_ticks_delimiter = 0
+
+                if not self.is_code:  # If it's the start of a code snippet
+                    self.is_code = True
+                    if self.token_buffer:  # If there's text in the buffer
+                        self.sentence_buffer += ''.join(self.token_buffer) # Add it to the sentence buffer
+                        self.token_buffer.clear()
+                    self.sentence_buffer += " I'm writing the code to the window now..." # Add a message to the sentence buffer
+                    threaded_generate_and_play(self.sentence_buffer, self.voice) # Generate and play the sentence buffer
+                    self.sentence_buffer = "" # Clear the sentence buffer
+                else:  # If it's the end of a code snippet
+                    self.is_code_end = True
+
+        if self.is_code:  # If the LLM is currently outputting a code snippet
+            self.code_buffer += token
+
+            # Send code buffer if necessary
+
+            if self.is_code_end:  # If it's the end of the code snippet
+                self.is_code = False
+                self.is_code_end = False
+        else: # 
+            self.token_buffer.append(token)
+            if token.endswith(('.', '?', '!', '"', '\n', ':')):
+                self.sentence_buffer += ''.join(self.token_buffer)
+                self.token_buffer.clear()
+            if self.sentence_buffer and audio_queue.qsize() == 0 and not is_playing_audio():
+                threaded_generate_and_play(self.sentence_buffer, self.voice)
+                self.sentence_buffer = ""
+        
+        
+        
+        
+        
+        
+        
 
 class XILabsCallbackHandler(BaseCallbackHandler):
     def __init__(self, voice):
         self.voice = voice
         self.token_buffer = []
         self.sentence_buffer = ""
+        self.code_buffer = ""
         self.is_code = False
         self.is_code_end = False
         self.is_incomplete_delimiter = False
         self.num_curr_ticks_delimiter = 0
 
     def on_llm_start(self, serialized, prompts, **kwargs) -> None:
+        #cl.start_stream()
+
         global is_running
         with is_running_lock:
             is_running = True
 
     def on_llm_new_token(self, token: str, **kwargs) -> None:
+        #cl.send_token(token)
         
         terminal_width = get_terminal_width()
         display_text = ''.join(self.token_buffer)
@@ -164,6 +233,10 @@ class XILabsCallbackHandler(BaseCallbackHandler):
                     self.is_code_end = True
 
         if self.is_code:  # If the LLM is currently outputting a code snippet
+            self.code_buffer += token
+
+            # Send code buffer
+
             if self.is_code_end:  # If it's the end of the code snippet
                 self.is_code = False
                 self.is_code_end = False
@@ -186,8 +259,43 @@ class XILabsCallbackHandler(BaseCallbackHandler):
             sys.stdout.flush()
             self.sentence_buffer = ""
 
+def stream_callback(in_data, frame_count, time_info, status):
+    global frames
+    frames.append(in_data)
+    return (in_data, pyaudio.paContinue)
+
+
+
+def start_recording():
+    global stream, is_recording
+    if stream is None or not stream.is_active():
+        sys.stdout.write('\r' + ' ' * get_terminal_width() + '\r')
+        with is_recording_lock:
+            is_recording = True
+        stream = p.open(format=FORMAT,
+                        channels=CHANNELS,
+                        rate=RATE,
+                        input=True,
+                        frames_per_buffer=CHUNK,
+                        stream_callback=stream_callback)
+        stream.start_stream()
+        
+
+def stop_recording():
+    global stream, recording_done, is_recording, p
+    if stream is not None and stream.is_active():
+        with is_recording_lock:
+            is_recording = False
+        stream.stop_stream()
+        stream.close()
+        stream = None
+        recording_done.set()
+
 
 def get_voice_input():
+    global frames, stream, recording_done, p
+    frames = []
+    p = pyaudio.PyAudio()
     # Create a temporary file for the recording
     temp_file = tempfile.NamedTemporaryFile(delete=True, suffix=".wav", dir='./record_outputs')
     WAVE_OUTPUT_FILENAME = temp_file.name  # Use the temporary file's name
@@ -195,39 +303,36 @@ def get_voice_input():
     sys.stdout.write('\r' + ' ' * get_terminal_width() + '\r')
     sys.stdout.flush()
 
-    p = pyaudio.PyAudio()
     # Open a new stream for recording
-    stream = p.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=RATE,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-
     print()
     sys.stdout.write(Fore.LIGHTBLUE_EX + 'Press the key to start recording and release to stop recording' + Fore.RESET)
     sys.stdout.flush()
-    frames = []
-    global is_recording
-    set_is_recording = False
     # Record audio while the space key is pressed
-    while True:
-        if keyboard.is_pressed('f13'):
-            if not set_is_recording:
-                sys.stdout.write('\r' + ' ' * get_terminal_width() + '\r')
-                with is_recording_lock:
-                    is_recording = True
-                set_is_recording = True
-            data = stream.read(CHUNK)
-            frames.append(data)
-        elif not keyboard.is_pressed('f13') and len(frames) > 0:
-            with is_recording_lock:
-                is_recording = False
-            set_is_recording = False
-            break
+    # while True:
+    #     if keyboard.is_pressed('f13'):
+    #         if not set_is_recording:
+    #             sys.stdout.write('\r' + ' ' * get_terminal_width() + '\r')
+    #             with is_recording_lock:
+    #                 is_recording = True
+    #             set_is_recording = True
+    #         data = stream.read(CHUNK)
+    #         frames.append(data)
+    #     elif not keyboard.is_pressed('f13') and len(frames) > 0:
+    #         with is_recording_lock:
+    #             is_recording = False
+    #         set_is_recording = False
+    #         break
 
-    # Stop and close the stream
-    stream.stop_stream()
-    stream.close()
+    # Register key press and release events
+    keyboard.add_hotkey('f13', start_recording, suppress=True)
+    keyboard.add_hotkey('f13', stop_recording, trigger_on_release=True, suppress=True)
+
+    # Wait for the recording to be done
+    recording_done.wait()
+    recording_done.clear()
+
+    # Unregister key press and release events
+    keyboard.remove_hotkey(start_recording)
     p.terminate()
 
     sys.stdout.flush()
@@ -276,7 +381,13 @@ chat_chain = LLMChain(
     memory=ConversationBufferWindowMemory(return_messages=True),
 )
 
+# Start the spinning icon display thread
+threading.Thread(target=display_spinning_icon, daemon=True).start()
+# Start the audio playback thread
+threading.Thread(target=play_audio_from_queue, daemon=True).start()
+
 def start_voice_input():
+    
     while True:
         transcript = get_voice_input()
         (prepped_transcript, edits) = prep_input(transcript)
@@ -296,9 +407,8 @@ def start_voice_input():
 if __name__ == "__main__":
     load_dotenv()
     # flask_thread = threading.Thread(target=start_flask_app)
-    # voice_input_thread = threading.Thread(target=start_voice_input)
+    voice_input_thread = threading.Thread(target=start_voice_input, daemon=True)
     # flask_thread.start()
-    # voice_input_thread.start()
+    voice_input_thread.start()
     # flask_thread.join()
-    # voice_input_thread.join()
-    start_voice_input()
+    voice_input_thread.join()
