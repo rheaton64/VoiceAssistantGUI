@@ -3,6 +3,7 @@ from langchain.schema import SystemMessage
 from langchain import LLMChain
 from langchain.chat_models import ChatOpenAI
 import pyperclip
+import os
 
 def load_clip_chain():
     system_template = """You are an AI classification assistant that can help determine the intent of a user's query.
@@ -71,9 +72,6 @@ def load_file_chains():
     )
 
     return file_chain, filename_chain
-
-import os
-import fnmatch
 
 def find_file(filename, search_path):
    result = []
