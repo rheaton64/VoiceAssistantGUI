@@ -19,7 +19,7 @@ from langchain.schema import SystemMessage
 from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
 from elevenlabs import generate, voices, set_api_key
 from elevenlabs import stream as xi_stream
-from query_analysis import prep_input
+from query_analysis import prep_all_inputs
 from dotenv import load_dotenv
 load_dotenv()
 # Parameters for recording
@@ -390,7 +390,7 @@ def start_voice_input():
     
     while True:
         transcript = get_voice_input()
-        (prepped_transcript, edits) = prep_input(transcript)
+        (prepped_transcript, edits) = prep_all_inputs(transcript)
         edits_str = "|".join(k for k in edits.keys() if edits[k] == True)
         print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
         print()
