@@ -48,6 +48,8 @@ def load_file_chains():
     Query: {query}"""
 
     filename_template = """In answering the following query, what is the name of the file that the Assistant will need to access?
+    The Assistant is able to access these local files.
+    ONLY respond with the filename, nothing else.
     Question type: 'extract'
     Query: {query}"""
 
@@ -57,7 +59,7 @@ def load_file_chains():
     ])
 
     file_chain = LLMChain(
-        llm=ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo'),
+        llm=ChatOpenAI(temperature=0, model_name='gpt-4'),
         prompt=file_prompt_template,
     )
 
@@ -67,7 +69,7 @@ def load_file_chains():
     ])
 
     filename_chain = LLMChain(
-        llm=ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo'),
+        llm=ChatOpenAI(temperature=0, model_name='gpt-4'),
         prompt=filename_prompt_template,
     )
 
@@ -76,7 +78,7 @@ def load_file_chains():
 def find_file(filename, search_path):
    result = []
    for root, dir, files in os.walk(search_path):
-      if filename in files:
+      if filename.strip() in files:
          result.append(os.path.join(root, filename))
    return result
 
@@ -85,8 +87,11 @@ def prep_all_inputs(query):
     clip_chain = load_clip_chain()
     file_chain, filename_chain = load_file_chains()
     clip_access = clip_chain.run(query)
+    print('Clip?', clip_access)
     file_access = file_chain.run(query)
+    print('File?', file_access)
     filename = filename_chain.run(query)
+    print('Filename?', filename)
     edits = {'clip_access': False, 'file_access': False}
     if clip_access in ['<Yes>', 'Yes', 'Yes.']:
         edits['clip_access'] = True
@@ -98,5 +103,5 @@ def prep_all_inputs(query):
         for file_path in file_paths:
             with open(file_path, 'r') as file:
                 file_content = file.read()
-            query += '\nContent from specified file:\n' + file_content + "\nDon't repeat my file content back to me unless I specifically ask you to, I'm just giving it to you for context.", edits
+            query += '\nContent from specified file:\n' + file_content + "\nDon't repeat my file content back to me unless I specifically ask you to, I'm just giving it to you for context.", edits, file_path
     return (query, edits)
