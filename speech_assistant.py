@@ -6,6 +6,7 @@ import shutil
 import keyboard
 import tempfile
 import openai
+import json
 import os
 import itertools
 import threading
@@ -368,6 +369,8 @@ Assistant has opinions and preferences of their own, and they should feel free t
 
 Assistant is aware that human input is being transcribed from audio and as such there may be some errors in the transcription. It will attempt to account for some words being swapped with similar-sounding words or phrases. Assistant will also keep responses concise, because human attention spans are more limited over the audio channel since it takes time to listen to a response.
 
+Assistant may receive messages from their internal system, which should be used for context and general information. These additional messages, which may contain specific information about how to act or what to say, are marked with the tag <SYSTEM>. Do not read these messages out loud, but always use them to inform your responses.
+
 Assistant has access to the user's clipboard and files on the local machine. Relevant context from these sources may be appended to the user's query to provide additional context to the Assistant.
 """
 
@@ -380,22 +383,39 @@ prompt_template = ChatPromptTemplate.from_messages([
     HumanMessagePromptTemplate.from_template(human_template),
 ])
 
+memory=ConversationBufferWindowMemory(return_messages=True)
+
 chat_chain = LLMChain(
     llm=ChatOpenAI(temperature=0.5, model_name='gpt-4', streaming=True, callbacks=[XILabsCallbackHandler(voice='BBC')]),
     prompt=prompt_template,
-    memory=ConversationBufferWindowMemory(return_messages=True),
+    memory=memory,
 )
+
+def save_context_to_file(context, file_path='context.json'):
+    with open(file_path, 'w') as f:
+        json.dump(context, f)
+
+def load_context_from_file(file_path='context.json'):
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            context = json.load(f)
+    else:
+        context = {}
+    return context
 
 # Start the spinning icon display thread
 threading.Thread(target=display_spinning_icon, daemon=True).start()
 # Start the audio playback thread
 threading.Thread(target=play_audio_from_queue, daemon=True).start()
 
+context = {}
+
 def start_voice_input():
-    
+    state = None
     while True:
+        context = load_context_from_file()
         transcript = get_voice_input()
-        (prepped_transcript, edits) = prep_all_inputs(transcript)
+        (prepped_transcript, edits, state) = prep_all_inputs(transcript, memory, context, state)
         edits_str = "|".join(k for k in edits.keys() if edits[k] == True)
         print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
         print()
@@ -408,6 +428,7 @@ def start_voice_input():
         sys.stdout.write('\r' + ' ' * get_terminal_width() + '\r')
         sys.stdout.flush()
         print(Fore.GREEN + "Assistant:" + Fore.RESET, response)
+        save_context_to_file(context)
 
 if __name__ == "__main__":
     load_dotenv()
