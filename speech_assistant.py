@@ -190,8 +190,6 @@ class XILabsCallbackHandler(BaseCallbackHandler):
         self.code_buffer = ""
         self.is_code = False
         self.is_code_end = False
-        self.is_incomplete_delimiter = False
-        self.num_curr_ticks_delimiter = 0
 
     def on_llm_start(self, serialized, prompts, **kwargs) -> None:
         #cl.start_stream()
@@ -207,30 +205,32 @@ class XILabsCallbackHandler(BaseCallbackHandler):
         display_text = ''.join(self.token_buffer)
         if len(display_text) > terminal_width:                                   
             display_text = display_text[-terminal_width:]
-        if token.startswith("`"): # Check if token starts with a backtick
-            if self.num_curr_ticks_delimiter == 0: # Check if it's a new delimiter
-                self.is_incomplete_delimiter = True # Set incomplete delimiter flag
-                self.num_curr_ticks_delimiter = len(token) # Update current ticks
+        # if token.startswith("`"): # Check if token starts with a backtick
+        #     if self.num_curr_ticks_delimiter == 0: # Check if it's a new delimiter
+        #         self.is_incomplete_delimiter = True # Set incomplete delimiter flag
+        #         self.num_curr_ticks_delimiter = len(token) # Update current ticks
 
-            else: # If we're in the middle of processing an incomplete delimiter
-                self.num_curr_ticks_delimiter += len(token) # Update current ticks
+        #     else: # If we're in the middle of processing an incomplete delimiter
+        #         self.num_curr_ticks_delimiter += len(token) # Update current ticks
 
-            # Check if we've completed a code block delimiter
-            if self.num_curr_ticks_delimiter >=3:
-                self.is_incomplete_delimiter = False
-                self.num_curr_ticks_delimiter = 0
+        #     # Check if we've completed a code block delimiter
+        #     if self.num_curr_ticks_delimiter >=3:
+        #         self.is_incomplete_delimiter = False
+        #         self.num_curr_ticks_delimiter = 0
 
-                if not self.is_code:  # If it's the start of a code snippet
-                    self.is_code = True
-                    if self.token_buffer:  # If there's text in the buffer
-                        self.sentence_buffer += ''.join(self.token_buffer) # Add it to the sentence buffer
-                        self.token_buffer.clear()
-                    self.sentence_buffer += " I'm writing the code to the window now..." # Add a message to the sentence buffer
-                    threaded_generate_and_play(self.sentence_buffer, self.voice) # Generate and play the sentence buffer
-                    self.sentence_buffer = "" # Clear the sentence buffer
+        if token in ['```', '`\n\n']: # Check if token is a code block delimiter
 
-                else:  # If it's the end of a code snippet
-                    self.is_code_end = True
+            if not self.is_code:  # If it's the start of a code snippet
+                self.is_code = True
+                if self.token_buffer:  # If there's text in the buffer
+                    self.sentence_buffer += ''.join(self.token_buffer) # Add it to the sentence buffer
+                    self.token_buffer.clear()
+                self.sentence_buffer += " I'm writing the code to the window now." # Add a message to the sentence buffer
+                threaded_generate_and_play(self.sentence_buffer, self.voice) # Generate and play the sentence buffer
+                self.sentence_buffer = "" # Clear the sentence buffer
+
+            else:  # If it's the end of a code snippet
+                self.is_code_end = True
 
         if self.is_code:  # If the LLM is currently outputting a code snippet
             self.code_buffer += token
@@ -294,6 +294,7 @@ def stop_recording():
 
 def get_voice_input():
     global frames, stream, recording_done, p
+    hotkey = '`'
     frames = []
     p = pyaudio.PyAudio()
     # Create a temporary file for the recording
@@ -324,8 +325,8 @@ def get_voice_input():
     #         break
 
     # Register key press and release events
-    keyboard.add_hotkey('f13', start_recording, suppress=True)
-    keyboard.add_hotkey('f13', stop_recording, trigger_on_release=True, suppress=True)
+    keyboard.add_hotkey(hotkey, start_recording, suppress=True)
+    keyboard.add_hotkey(hotkey, stop_recording, trigger_on_release=True, suppress=True)
 
     # Wait for the recording to be done
     recording_done.wait()
@@ -353,7 +354,9 @@ def get_voice_input():
     
     return transcript.text
 
-system_template = """Assistant is a large language model trained by OpenAI.
+system_template = """You are Assistant. A powerful, intelligent, and capable AI personal assistant created by Ryan Heaton.
+
+Assistant is powered by a large language model trained by OpenAI and fine-tuned by Ryan Heaton.
 
 Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. As a language model, Assistant is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
 
@@ -361,9 +364,11 @@ Assistant is constantly learning and improving, and its capabilities are constan
 
 Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. Whether you need help with a specific question or just want to have a conversation about a particular topic, Assistant is here to assist.
 
-You have opinions and preferences of your own, and you should feel free to express them. Engage with the human as if you were also human, and are talking to a long time friend.
+Assistant has opinions and preferences of their own, and they should feel free to express them. Assistant engages with the human as if Assistant was also a human, and are talking to a long time friend.
 
 Assistant is aware that human input is being transcribed from audio and as such there may be some errors in the transcription. It will attempt to account for some words being swapped with similar-sounding words or phrases. Assistant will also keep responses concise, because human attention spans are more limited over the audio channel since it takes time to listen to a response.
+
+Assistant has access to the user's clipboard and files on the local machine. Relevant context from these sources may be appended to the user's query to provide additional context to the Assistant.
 """
 
 human_template = """{history}

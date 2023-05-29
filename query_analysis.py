@@ -21,21 +21,11 @@ def load_clip_chain():
     ])
 
     clip_chain = LLMChain(
-        llm=ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo'),
+        llm=ChatOpenAI(temperature=0, model_name='gpt-4'),
         prompt=clip_prompt_template,
     )
 
     return clip_chain
-
-def prep_input(query):
-    clip_chain = load_clip_chain()
-    clip = clip_chain.run(query)
-    edits = {'clipboard': False}
-    if clip in ['<Yes>', 'Yes', 'Yes.']:
-        edits['clipboard'] = True
-        return (query + '\nContent from user\'s clipboard:\n' + pyperclip.paste() + "\nDon't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context.", edits)
-    else:
-        return (query, edits)
 
 def load_file_chains():
     system_template = """You are an AI assistant that can help determine whether the user's query requires access to a local file.
@@ -43,9 +33,9 @@ def load_file_chains():
     If asked an 'extract' question, please only respond with the requested information. Do not provide any other information or say anything else.
     You do not provide any other information other than the answer to the question."""
 
-    file_template = """In answering the following query, will the Assistant need to access a local file?
+    file_template = """In answering the following query, will the Assistant need to access a local file? Note: the clipboard is not a local file.
     Question type: 'yes/no'
-    Query: {query}"""
+    Query: {query}"""                                                                                                                                                                                                     
 
     filename_template = """In answering the following query, what is the name of the file that the Assistant will need to access?
     The Assistant is able to access these local files.
@@ -76,32 +66,31 @@ def load_file_chains():
     return file_chain, filename_chain
 
 def find_file(filename, search_path):
-   result = []
-   for root, dir, files in os.walk(search_path):
-      if filename.strip() in files:
-         result.append(os.path.join(root, filename))
-   return result
+    result = []
+    for root, dir, files in os.walk(search_path):
+        files = [f.lower() for f in files]
+        if filename.strip().lower() in files:
+            result.append(os.path.join(root, filename))
+    return result
 
 
 def prep_all_inputs(query):
     clip_chain = load_clip_chain()
     file_chain, filename_chain = load_file_chains()
     clip_access = clip_chain.run(query)
-    print('Clip?', clip_access)
     file_access = file_chain.run(query)
-    print('File?', file_access)
-    filename = filename_chain.run(query)
-    print('Filename?', filename)
     edits = {'clip_access': False, 'file_access': False}
     if clip_access in ['<Yes>', 'Yes', 'Yes.']:
         edits['clip_access'] = True
-        query + '\nContent from user\'s clipboard:\n' + pyperclip.paste() + "\nDon't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context.", edits
+        query += '\nContent from user\'s clipboard:\n-----\n' + pyperclip.paste() + "\n-----\nDon't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context."
     if file_access in ['<Yes>', 'Yes', 'Yes.']:
         edits['file_access'] = True
-        search_path = '~/code'  # Replace with the actual search path
+        search_path = 'C:\\Users\\ryguy\\Documents\\code'  # Replace with the actual search path
+        filename = filename_chain.run(query)
+        print('Filename?', filename)
         file_paths = find_file(filename, search_path)
         for file_path in file_paths:
             with open(file_path, 'r') as file:
                 file_content = file.read()
-            query += '\nContent from specified file:\n' + file_content + "\nDon't repeat my file content back to me unless I specifically ask you to, I'm just giving it to you for context.", edits, file_path
+            query += '\nContent from specified file:\n' + file_content + "\nDon't repeat my file content back to me unless I specifically ask you to, I'm just giving it to you for context."
     return (query, edits)
