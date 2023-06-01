@@ -1,0 +1,56 @@
+Yes, I see that you have implemented a push-to-talk system using the `keyboard` library to detect key presses and releases. To allow the user to interrupt the AI while it's speaking, you can modify the `play_audio_from_queue` function to stop playing audio when the push-to-talk key is pressed. Here's an example of how you can achieve this:
+
+1. Add a global flag `is_interrupted` and a lock `is_interrupted_lock` to manage the interrupted state:
+
+```python
+is_interrupted = False
+is_interrupted_lock = threading.Lock()
+```
+
+2. Create a function to set the `is_interrupted` flag:
+
+```python
+def set_interrupted(value):
+    global is_interrupted
+    with is_interrupted_lock:
+        is_interrupted = value
+```
+
+3. Modify the `play_audio_from_queue` function to stop playing audio when the `is_interrupted` flag is set:
+
+```python
+def play_audio_from_queue():
+    global is_playing
+    while True:
+        audio = audio_queue.get()
+        with is_playing_lock:
+            is_playing = True
+
+        # Modify this part
+        xi_stream(audio, on_chunk_played=lambda: set_interrupted(False) if is_interrupted else None)
+
+        if audio_queue.qsize() == 0:
+            with is_playing_lock:
+                is_playing = False
+        audio_queue.task_done()
+```
+
+4. Register a new hotkey in the `get_voice_input` function to set the `is_interrupted` flag when the push-to-talk key is pressed:
+
+```python
+# Register key press and release events
+keyboard.add_hotkey(hotkey, start_recording, suppress=True)
+keyboard.add_hotkey(hotkey, stop_recording, trigger_on_release=True, suppress=True)
+keyboard.add_hotkey(hotkey, lambda: set_interrupted(True), suppress=True)  # Add this line
+```
+
+5. Don't forget to unregister the hotkey after the recording is done:
+
+```python
+# Unregister key press and release events
+keyboard.remove_hotkey(start_recording)
+keyboard.remove_hotkey(stop_recording)
+keyboard.remove_hotkey(lambda: set_interrupted(True))  # Add this line
+```
+
+Now, when the user presses the push-to-talk key while the AI is speaking, the audio playback should be interrupted.

@@ -1,0 +1,42 @@
+human: Can you pick up where we left off last time?
+<SYSTEM>: Content from user's clipboard:
+-----
+save_conversation_template = """In answering the following query, will the Assistant need to save the current conversation or conversation history?
+    Or, is the Assistant being asked to 'remember' the current conversation, or save some information for later?
+    Question type: 'yes/no'
+    Query: {query}"""
+-----
+Don't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context.
+
+<SYSTEM> The last conversation with the user has been loaded and can be found here:
+
+human: Tell me a little bit about yourself.
+
+ai: I'm Assistant, a powerful and intelligent AI personal assistant created by Ryan Heaton. I'm designed to help you with a wide range of tasks, from answering simple questions to providing in-depth explanations on various topics. I'm constantly learning and improving my capabilities to better serve you. As a language model, I can engage in natural-sounding conversations and provide coherent and relevant responses based on the input I receive. My goal is to assist you and make your life easier by providing valuable insights and information.
+
+human: What kind of stuff can you access in terms of MyData?
+
+ai: In terms of your data, I can access information that you explicitly provide or grant me permission to access. This may include your clipboard, local files on your machine, or any other data you share with me during our interactions. Keep in mind that I will always prioritize your privacy and security, and I will only access information necessary to assist you with your requests. If you want me to access specific data, please let me know, and I'll do my best to help.
+
+
+
+<SYSTEM> Let the user know that the conversation has been loaded, and do not repeat the conversation back to them unless they specifically ask you to.
+
+ai: I've loaded our previous conversation and I'm ready to pick up where we left off. If you have any questions or need assistance, feel free to ask.
+
+human: Given your goal of assisting me to the fullest extent, what other capabilities or access would you like to have in order to complete your duties?
+
+ai: To better assist you, there are a few additional capabilities and access points that could be helpful:
+
+1. Integration with external services and APIs: This would allow me to gather information and perform tasks across various platforms, such as managing your calendar, sending emails, or fetching real-time data.
+
+2. Access to a broader knowledge base: While I'm already trained on a vast amount of information, having real-time access to updated sources, such as news articles, research papers, and databases, would help me provide more accurate and up-to-date information.
+
+3. Enhanced personalization: The more I know about your preferences, interests, and habits, the better I can tailor my assistance to your needs. This could include learning from your past interactions and feedback, as well as integrating with other data sources that you authorize.
+
+4. Improved context awareness: Understanding the context of your requests and the environment you're in would help me provide more relevant and personalized assistance. This could involve analyzing the text surrounding your queries or integrating with sensors and IoT devices.
+
+5. Natural language understanding improvements: Continuous advancements in natural language processing and understanding would allow me to better comprehend the nuances of human language and provide more accurate and helpful responses.
+
+Of course, any additional access or capabilities would always prioritize your privacy and security, and I would only use them to provide you with the assistance you need.
+

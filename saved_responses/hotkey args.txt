@@ -1,0 +1,41 @@
+To modify the `speech_assistant.py` script to accept command line arguments for setting the push-to-talk hotkey, you can use the `argparse` library. Here's how you can modify the script:
+
+1. Import the `argparse` library at the beginning of the script:
+
+```python
+import argparse
+```
+
+2. Add a function to parse command line arguments:
+
+```python
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Speech Assistant with customizable push-to-talk hotkey.')
+    parser.add_argument('--hotkey', type=str, default='f13', help='The hotkey to use for push-to-talk (default: f13).')
+    args = parser.parse_args()
+    return args
+```
+
+3. Call the `parse_arguments()` function at the beginning of the `start_voice_input()` function and replace the hard-coded hotkey with the parsed hotkey:
+
+```python
+def start_voice_input():
+    args = parse_arguments()
+    hotkey = args.hotkey
+
+    # Replace 'f13' with hotkey in the following lines:
+    # keyboard.add_hotkey('f13', start_recording, suppress=True)
+    # keyboard.add_hotkey('f13', stop_recording, trigger_on_release=True, suppress=True)
+    keyboard.add_hotkey(hotkey, start_recording, suppress=True)
+    keyboard.add_hotkey(hotkey, stop_recording, trigger_on_release=True, suppress=True)
+
+    # Rest of the function remains the same
+```
+
+With these changes, you can now set the push-to-talk hotkey using a command line argument when running the script, for example:
+
+```
+python speech_assistant.py --hotkey f14
+```
+
+This will set the push-to-talk hotkey to F14 instead of the default F13.

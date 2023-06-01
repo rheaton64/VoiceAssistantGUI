@@ -1,0 +1,39 @@
+To implement this functionality, you can create a new function called `save_conversation_history` that takes the conversation history and saves it to a text file. Then, you can modify your main loop to recognize when the user asks to save the conversation history and call this new function.
+
+Here's an example of how to implement this:
+
+1. Create a new function `save_conversation_history`:
+
+```python
+import datetime
+
+def save_conversation_history(conversation_history):
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f"conversation_history_{timestamp}.txt"
+    with open(filename, "w") as file:
+        for message in conversation_history:
+            file.write(f"{message.author}: {message.content}\n")
+    print(f"Conversation history saved to {filename}")
+```
+
+2. Modify your main loop to recognize when the user asks to save the conversation history and call the new function:
+
+In your main loop, after getting the user's input and before sending it to the AI, you can check if the input contains a specific phrase like "save the conversation history". If it does, call the `save_conversation_history` function with the conversation history.
+
+For example, in your `start_voice_input` function, you can add the following code right after getting the user's input:
+
+```python
+transcript = get_voice_input()
+(prepped_transcript, edits) = prep_all_inputs(transcript)
+
+# Check if the user asked to save the conversation history
+if "save the conversation history" in prepped_transcript.lower():
+    save_conversation_history(chat_chain.memory.get_messages())
+
+# Continue with the rest of the loop
+print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
+print()
+response = chat_chain.run(prepped_transcript)
+```
+
+Now, when the user asks to save the conversation history, the AI will save the conversation to a text file with a timestamp in the filename.

@@ -1,0 +1,17 @@
+human: Access the recipe that is on your clipboard and talk to me about the salad dressing. Based on the ingredients on the recipe, can the salad dressing be left out on the counter or does it need to be refrigerated?
+<SYSTEM>: Content from user's clipboard:
+-----
+Put the spinach, strawberries and shallots in a large bowl.
+Toast the almonds in a small skillet over medium heat, stirring until golden brown, about 2 minutes. Transfer to a bowl or plate and set aside to cool.
+Put the bacon in a cold medium skillet; cook over medium heat, stirring occasionally, until browned and crisp, about 10 minutes. With a slotted spoon, transfer to a paper-towel-lined plate; leave the bacon fat in the pan.
+Take the skillet off the heat and stir in the mustard and sugar until the sugar is dissolved. Add the vinegar and then whisk in the olive oil. Season with 1/4 teaspoon salt and pepper to taste.
+Add the bacon and almonds to the salad, pour over the bacon vinaigrette, and toss to coat. Serve immediately.
+-----
+Don't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context.
+
+ai: Based on the recipe you provided, the salad dressing is a bacon vinaigrette, which includes bacon fat, mustard, sugar, vinegar, and olive oil. Since it contains bacon fat, it's better to refrigerate the salad dressing if you don't use it immediately. The bacon fat can spoil if left at room temperature for too long. Just remember to give the dressing a good stir or shake before using it again, as the ingredients may separate when chilled.
+
+human: How long can I leave it sitting out at room temperature before I have to throw it away?
+
+ai: It's generally recommended not to leave perishable food items, like the bacon vinaigrette, at room temperature for more than 2 hours. After that point, the risk of bacterial growth and spoilage increases significantly. If you're in a particularly hot environment (above 90°F or 32°C), the safe time is reduced to just 1 hour. To be on the safe side, it's best to refrigerate any leftover dressing as soon as possible.
+
