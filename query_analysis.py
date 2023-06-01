@@ -15,6 +15,7 @@ def load_clip_chain():
     You do not provide any other information other than the answer to the question."""
 
     clipboard_template = """In answering the following query, will the Assistant need to access the user's clipboard?
+    Note: if the user is asking the assistant to load conversation history, this does not apply.
     Query: {query}"""
 
     clip_prompt_template = ChatPromptTemplate.from_messages([
@@ -180,7 +181,7 @@ def prep_all_inputs(query, memory, context, state = None):
     edits = {'clip_access': False, 'file_access': False}
     if clip_access in ['<Yes>', 'Yes', 'Yes.']:
         edits['clip_access'] = True
-        query += '\n<SYSTEM>: Content from user\'s clipboard:\n-----\n' + pyperclip.paste() + "\n-----\nDon't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context."
+        query += '\n<SYSTEM>: Content from user\'s clipboard:\n-----\n' + pyperclip.paste() + "\n-----\nDon't repeat the user's clipboard back to them unless they specifically ask you to.</SYSTEM>"
     if file_access in ['<Yes>', 'Yes', 'Yes.']:
         edits['file_access'] = True
         search_path = os.path.join(os.environ['USERPROFILE'], 'Documents')
@@ -190,13 +191,13 @@ def prep_all_inputs(query, memory, context, state = None):
         for file_path in file_paths:
             with open(file_path, 'r') as file:
                 file_content = file.read()
-            query += '\n<SYSTEM>: Content from specified file:\n' + file_content + "\nDon't repeat my file content back to me unless I specifically ask you to, I'm just giving it to you for context."
+            query += '\n<SYSTEM>: Content from specified file:\n' + file_content + "\nDon't repeat the user's file content back to them unless they specifically ask you to.</SYSTEM>"
     if save_conversation in ['<Yes>', 'Yes', 'Yes.']:
         print('Saving conversation...')
         save_filename = save_conversation_history(memory, context)
-        query += f'\n\n<SYSTEM> Conversation history successfully saved. Please let the user know that this is the case, and that this conversation has been saved in the file named {save_filename}.'
+        query += f'\n\n<SYSTEM> Conversation history successfully saved. Please let the user know that this is the case, and that this conversation has been saved in the file named {save_filename}. </SYSTEM>'
     if load_conversation in ['<Yes>', 'Yes', 'Yes.']:
         hist = load_conversation_history(context['prev_conv_filename'])
-        query += f'\n\n<SYSTEM> The last conversation with the user has been loaded and can be found here:\n\n{hist}\n\n<SYSTEM> Let the user know that the conversation has been loaded, and do not repeat the conversation back to them unless they specifically ask you to.'
+        query += f'\n\n<SYSTEM> The last conversation with the user has been loaded and can be found here:\n\n{hist}\n\nLet the user know that the conversation has been loaded, and do not repeat the conversation back to them unless they specifically ask you to.</SYSTEM>'
     return (query, edits, state)
 

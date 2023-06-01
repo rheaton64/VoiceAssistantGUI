@@ -21,6 +21,7 @@ from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTem
 from elevenlabs import generate, voices, set_api_key
 from elevenlabs import stream as xi_stream
 from query_analysis import prep_all_inputs
+from assistant_agent import load_assistant_agent
 from dotenv import load_dotenv
 load_dotenv()
 # Parameters for recording
@@ -55,6 +56,7 @@ frames = []
 p = None
 stream = None
 recording_done = threading.Event()
+interrupt_event = threading.Event()
 
 # Spinner for loading symbol
 def spinning_cursor():
@@ -93,6 +95,19 @@ def is_running_llm():
     global is_running
     with is_running_lock:
         return is_running_llm
+
+def set_interrupted(value):
+    if value:
+        interrupt_event.set()
+    else:
+        interrupt_event.clear()
+
+# the below does not work   
+def interruptible_stream(audio):
+    for chunk in audio.chunks:
+        if interrupt_event.is_set():
+            break
+        xi_stream(iter([chunk]))
 
 def play_audio_from_queue():
     global is_playing
@@ -328,6 +343,7 @@ def get_voice_input():
     # Register key press and release events
     keyboard.add_hotkey(hotkey, start_recording, suppress=True)
     keyboard.add_hotkey(hotkey, stop_recording, trigger_on_release=True, suppress=True)
+    # keyboard.add_hotkey(hotkey, lambda: set_interrupted(True), suppress=True)
 
     # Wait for the recording to be done
     recording_done.wait()
@@ -385,11 +401,13 @@ prompt_template = ChatPromptTemplate.from_messages([
 
 memory=ConversationBufferWindowMemory(return_messages=True)
 
-chat_chain = LLMChain(
-    llm=ChatOpenAI(temperature=0.5, model_name='gpt-4', streaming=True, callbacks=[XILabsCallbackHandler(voice='BBC')]),
-    prompt=prompt_template,
-    memory=memory,
-)
+# chat_chain = LLMChain(
+#     llm=ChatOpenAI(temperature=0.5, model_name='gpt-4', streaming=True, callbacks=[XILabsCallbackHandler(voice='BBC')]),
+#     prompt=prompt_template,
+#     memory=memory,
+# )
+
+agent_chat_chain = load_assistant_agent(memory, XILabsCallbackHandler(voice='BBC'))
 
 def save_context_to_file(context, file_path='context.json'):
     with open(file_path, 'w') as f:
@@ -419,7 +437,7 @@ def start_voice_input():
         edits_str = "|".join(k for k in edits.keys() if edits[k] == True)
         print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
         print()
-        response = chat_chain.run(prepped_transcript)
+        response = agent_chat_chain.run(prepped_transcript)
         while True:
             if is_playing_audio():
                 time.sleep(0.1)
