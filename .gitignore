@@ -2,4 +2,5 @@
 .venv/
 __pycache__/
 record_outputs/*
+response_logs/*
 context.json

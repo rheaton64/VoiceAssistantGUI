@@ -4,6 +4,7 @@ from langchain import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
 import datetime
+import asyncio
 import pyperclip
 import os
 
@@ -15,6 +16,7 @@ def load_clip_chain():
     You do not provide any other information other than the answer to the question."""
 
     clipboard_template = """In answering the following query, will the Assistant need to access the user's clipboard?
+    Or, is the user referring to some content that they have copied to their clipboard?
     Note: if the user is asking the assistant to load conversation history, this does not apply.
     Query: {query}"""
 
@@ -75,6 +77,7 @@ def load_name_generation_chain():
     You do not provide any other information other than the answer to the question."""
 
     name_generation_template = """Based on the content of the following conversation, what would be a relevant name for the file where it will be saved?
+    Any spaces in the name should be replaced with underscores '_'.
     Question type: 'name'
     Conversation: {conversation}"""
 
@@ -103,7 +106,7 @@ def load_file_chains():
     Query: {query}"""                                                                                                                                                                                                     
 
     filename_template = """In answering the following query, what is the name of the file that the Assistant will need to access?
-    The Assistant is able to access these local files.
+    The Assistant is able to access these local files. If a filename contains a space, please replace the space with an underscore '_'.
     ONLY respond with the filename, nothing else.
     Question type: 'extract'
     Query: {query}"""
@@ -160,43 +163,51 @@ class ConvoState:
     def __init__(self):
         self.loaded_prev = False
 
+async def run_chain(chain, query):
+    return await chain.arun(query)
+
+def load_chains():
+    # put the file chains back in if needed
+    return[load_clip_chain(), *load_memory_chains()]
+
+async def run_chains_async(query, state):
+
+    chains = load_chains()
+    tasks = [run_chain(chain, query) for chain in chains]
+    resp = await asyncio.gather(*tasks, return_exceptions=True)
+    results = {
+        'clip_access': resp[0],
+        # 'file_access': resp[1],
+        # 'filename': resp[2],
+        'save_conversation': resp[1],
+        'load_conversation': resp[2],
+    }
+    
+    print(str(results))
+    return results
+
 
 def prep_all_inputs(query, memory, context, state = None):
     if state is None:
         state = ConvoState()
-    clip_chain = load_clip_chain()
-    file_chain, filename_chain = load_file_chains()
-    save_conversation_chain, load_conversation_chain = load_memory_chains()
-    clip_access = clip_chain.run(query)
-    print('Clip access?', clip_access)
-    file_access = file_chain.run(query)
-    print('File access?', file_access)
-    save_conversation = save_conversation_chain.run(query)
-    print('Save conversation?', save_conversation)
-    if state.loaded_prev:
-        load_conversation = '<No>'
-    else:
-        load_conversation = load_conversation_chain.run(query)
-        print('Load conversation?', load_conversation)
+    results = asyncio.run(run_chains_async(query, state))
     edits = {'clip_access': False, 'file_access': False}
-    if clip_access in ['<Yes>', 'Yes', 'Yes.']:
+    if results['clip_access'] in ['<Yes>', 'Yes', 'Yes.']:
         edits['clip_access'] = True
         query += '\n<SYSTEM>: Content from user\'s clipboard:\n-----\n' + pyperclip.paste() + "\n-----\nDon't repeat the user's clipboard back to them unless they specifically ask you to.</SYSTEM>"
-    if file_access in ['<Yes>', 'Yes', 'Yes.']:
-        edits['file_access'] = True
-        search_path = os.path.join(os.environ['USERPROFILE'], 'Documents')
-        filename = filename_chain.run(query)
-        print('Filename?', filename)
-        file_paths = find_file(filename, search_path)
-        for file_path in file_paths:
-            with open(file_path, 'r') as file:
-                file_content = file.read()
-            query += '\n<SYSTEM>: Content from specified file:\n' + file_content + "\nDon't repeat the user's file content back to them unless they specifically ask you to.</SYSTEM>"
-    if save_conversation in ['<Yes>', 'Yes', 'Yes.']:
+    # if results['file_access'] in ['<Yes>', 'Yes', 'Yes.']:
+    #     edits['file_access'] = True
+    #     search_path = os.path.join(os.environ['USERPROFILE'], 'source')
+    #     file_paths = find_file(results['filename'], search_path)
+    #     for file_path in file_paths:
+    #         with open(file_path, 'r') as file:
+    #             file_content = file.read()
+    #         query += '\n<SYSTEM>: Content from specified file:\n' + file_content + "\nDon't repeat the user's file content back to them unless they specifically ask you to.</SYSTEM>"
+    if results['save_conversation'] in ['<Yes>', 'Yes', 'Yes.']:
         print('Saving conversation...')
         save_filename = save_conversation_history(memory, context)
         query += f'\n\n<SYSTEM> Conversation history successfully saved. Please let the user know that this is the case, and that this conversation has been saved in the file named {save_filename}. </SYSTEM>'
-    if load_conversation in ['<Yes>', 'Yes', 'Yes.']:
+    if results['load_conversation'] in ['<Yes>', 'Yes', 'Yes.']:
         hist = load_conversation_history(context['prev_conv_filename'])
         query += f'\n\n<SYSTEM> The last conversation with the user has been loaded and can be found here:\n\n{hist}\n\nLet the user know that the conversation has been loaded, and do not repeat the conversation back to them unless they specifically ask you to.</SYSTEM>'
     return (query, edits, state)

@@ -1,4 +1,4 @@
-from xilabs_callbacks import XILabsCallbackHandler
+from xilabs_callbacks_gevent import XILabsCallbackHandler
 import chainlit as cl
 import dotenv
 import os

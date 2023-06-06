@@ -1,0 +1,136 @@
+human: Can you load the file query underscore analysis.py so we can talk about it?
+<SYSTEM>: Content from user's clipboard:
+-----
+self.output_handler = AssistantOutputHandler(voice, playing_event)
+-----
+Don't repeat the user's clipboard back to them unless they specifically ask you to.</SYSTEM>
+<SYSTEM>: Content from specified file:
+from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain.schema import SystemMessage
+from langchain import LLMChain
+from langchain.chat_models import ChatOpenAI
+import pyperclip
+
+def load_clip_chain():
+    system_template = """You are an AI classification assistant that can help determine the intent of a user's query.
+    This query is given to a larger and more powerful AI assistant, which will then respond to the query.
+    You only respond with answers to questions, and only respond with the answer '<Yes>' or '<No>'.
+    You will never respond with an answer that is not exactly '<Yes>' or '<No>'.
+    You do not provide any other information other than the answer to the question."""
+
+    clipboard_template = """In answering the following query, will the Assistant need to access the user's clipboard?
+    Query: {query}"""
+
+    clip_prompt_template = ChatPromptTemplate.from_messages([
+        SystemMessage(content=system_template),
+        HumanMessagePromptTemplate.from_template(clipboard_template),
+    ])
+
+    clip_chain = LLMChain(
+        llm=ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo'),
+        prompt=clip_prompt_template,
+    )
+
+    return clip_chain
+
+def prep_input(query):
+    clip_chain = load_clip_chain()
+    clip = clip_chain.run(query)
+    edits = {'clipboard': False}
+    if clip in ['<Yes>', 'Yes', 'Yes.']:
+        edits['clipboard'] = True
+        return (query + '\nContent from user\'s clipboard:\n' + pyperclip.paste() + "\nDon't repeat my clipboard back to me unless I specifically ask you to, I'm just giving it to you for context.", edits)
+    else:
+        return (query, edits)
+
+
+Don't repeat the user's file content back to them unless they specifically ask you to.</SYSTEM>
+
+ai: I have loaded the contents of the file "query_analysis.py". If you have any questions or need clarification about the code, feel free to ask.
+
+human: You see in prep all inputs how I'm running a bunch of chains to ask the questions. I want to run those all synchronously. I want them to happen at the same time instead of one after another. What are some different ways I can do that?
+
+ai: There are multiple ways to run the chains concurrently in Python. Some popular options include using threads, multiprocessing, or asynchronous programming with asyncio. Here's a brief overview of each approach:
+
+1. **Threading**: Threading is suitable when you have I/O-bound tasks, like making API calls. Python's `threading` module allows you to create multiple threads that can run concurrently. However, due to the Global Interpreter Lock (GIL) in CPython, threads may not provide true parallelism for CPU-bound tasks.
+
+Example using `threading`:
+
+```python
+import threading
+
+def run_chain(chain):
+    # Your chain execution code here
+    pass
+
+threads = []
+for chain in chains:
+    thread = threading.Thread(target=run_chain, args=(chain,))
+    thread.start()
+    threads.append(thread)
+
+for thread in threads:
+    thread.join()
+```
+
+2. **Multiprocessing**: If you have CPU-bound tasks, you can use the `multiprocessing` module, which creates separate processes for each task, bypassing the GIL and achieving true parallelism.
+
+Example using `multiprocessing`:
+
+```python
+import multiprocessing
+
+def run_chain(chain):
+    # Your chain execution code here
+    pass
+
+processes = []
+for chain in chains:
+    process = multiprocessing.Process(target=run_chain, args=(chain,))
+    process.start()
+    processes.append(process)
+
+for process in processes:
+    process.join()
+```
+
+3. **Asyncio**: If you're working with asynchronous code, you can use the `asyncio` library, which allows you to write asynchronous, non-blocking code using `async/await` syntax. This approach is particularly useful for I/O-bound tasks, like making multiple API calls concurrently.
+
+Example using `asyncio`:
+
+```python
+import asyncio
+
+async def run_chain(chain):
+    # Your asynchronous chain execution code here
+    pass
+
+async def main():
+    tasks = [run_chain(chain) for chain in chains]
+    await asyncio.gather(*tasks)
+
+asyncio.run(main())
+```
+
+Choose the approach that best fits your use case and the nature of the tasks you're running concurrently.
+
+human: So what's the difference between asyncio and threading? It looks like they're doing basically the same thing, no?
+
+ai: Both asyncio and threading are used to achieve concurrency in Python, but they have different mechanisms and use cases.
+
+**Threading**:
+- Threading uses multiple threads within a single process.
+- Threads run concurrently and share the same memory space.
+- Threading is suitable for I/O-bound tasks.
+- Due to the Global Interpreter Lock (GIL) in CPython, threads may not provide true parallelism for CPU-bound tasks. The GIL ensures that only one thread executes Python bytecode at a time, even on multi-core systems.
+- Threading can lead to race conditions and deadlocks if not managed carefully, so proper synchronization (e.g., using locks) is required.
+
+**Asyncio**:
+- Asyncio is a single-threaded, asynchronous programming model that uses cooperative multitasking.
+- It relies on async/await syntax and non-blocking I/O operations.
+- Asyncio is suitable for I/O-bound tasks and high-concurrency scenarios, such as handling many simultaneous connections.
+- It does not suffer from the GIL limitation, as it uses only one thread.
+- With asyncio, you have more control over when a task yields control to the event loop, which schedules other tasks to run. This allows for more predictable and efficient execution.
+
+In summary, both threading and asyncio can be used for concurrent I/O-bound tasks, but they achieve concurrency through different means. Threading uses multiple threads and is prone to issues like race conditions, while asyncio is single-threaded and relies on asynchronous programming and an event loop. Choose the approach that best fits your use case and the nature of the tasks you're running concurrently.
+

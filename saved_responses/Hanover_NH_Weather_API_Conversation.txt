@@ -1,0 +1,10 @@
+human: Use a weather API to check the weather in Hanover, New Hampshire.
+
+ai: I will check the weather in Hanover, New Hampshire using a weather API. Give me a moment.
+
+<ACTION>Check the weather in Hanover, New Hampshire using a weather API</ACTION>
+
+human: It is currently night time.
+
+ai: I have checked the weather in Hanover, New Hampshire using a weather API. It is currently night time. If you would like more specific information about the weather, such as temperature or precipitation, please let me know.
+
