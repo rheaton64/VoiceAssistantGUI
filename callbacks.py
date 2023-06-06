@@ -3,6 +3,9 @@ import threading
 import datetime
 import json
 import os
+import subprocess
+import time
+from pywinauto import Application
 from elevenlabs import generate, stream, set_api_key, voices
 from langchain.callbacks.base import BaseCallbackHandler
 from action.action_executor import ActionExecutor
@@ -67,6 +70,26 @@ class AssistantCallbackHandler(BaseCallbackHandler):
         self.running_event.clear()
         self.save_log()
 
+class NewTermCallbackHandler(BaseCallbackHandler):
+    def __init__(self):
+        self.cmd = 'start cmd.exe /k'
+        self.process = None
+        self.terminal = None
+        self.app = None
+
+    def on_llm_start(self, serialized, prompts, **kwargs) -> None:
+        self.process = subprocess.Popen(self.cmd, shell=True)
+        time.sleep(2)  # Give the terminal time to open
+        self.app = Application(backend='uia').connect(process=self.process.pid)
+        self.terminal = self.app.window(title_re='.*cmd.exe')
+
+    
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.terminal.type_keys(token, with_spaces=True)
+
+    def on_llm_end(self, response, **kwargs) -> None:
+        pass
+
 
 class AssistantOutputHandler():
     def __init__(self, voice, log_info, is_playing):
@@ -78,12 +101,14 @@ class AssistantOutputHandler():
         self.action_buffer = "<ACTION>"
         self.is_playing = is_playing
         self.log_info = log_info
-        self.action_executor = ActionExecutor()
+        self.action_executor = ActionExecutor(callback=NewTermCallbackHandler())
 
     def start(self):
         pass
 
     def send_action(self, action):
+        action = action.replace('<ACTION>', '')
+        action = action.replace('</ACTION>', '')
         threading.Thread(target=self.action_executor.send, args=[action]).start()
 
         self.log_info['actions'].append(action)
