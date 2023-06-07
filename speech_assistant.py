@@ -17,7 +17,7 @@ from query_analysis import prep_all_inputs
 from assistant_agent import load_assistant_agent
 from callbacks import AssistantCallbackHandler
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 # Parameters for recording
 CHUNK = 1024
 FORMAT = pyaudio.paInt24
@@ -231,7 +231,6 @@ def start_voice_input():
         save_context_to_file(context)
 
 if __name__ == "__main__":
-    load_dotenv()
     # flask_thread = threading.Thread(target=start_flask_app)
     voice_input_thread = threading.Thread(target=start_voice_input, daemon=True)
     # flask_thread.start()

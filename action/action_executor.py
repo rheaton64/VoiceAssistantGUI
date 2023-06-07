@@ -11,17 +11,18 @@ from langchain.utilities import PythonREPL
 import threading
 import queue
 import os
-
+import requests
+import json
 
 
 class ActionResponse(BaseModel):
     explain: str = Field(description="What is the user asking you to do? What outputs are the user expecting? What inputs are the user specifying, and how can we infer potential general function parameters from them? Are there any ambiguities in the task? What are they? How can they be accounted for? Can we solve these ambiguities in the task without asking the user for more information?")
-    plan: list[str] = Field(description="How to complete the task step by step.")
+    plan: list[str] = Field(description="How to complete the task step by step. Be sure to mention any predefined helper variables that you will use, such as API keys.")
     libraries: list[str] = Field(description="What non-standard libraries, if any, need to be installed to complete the task?")
-    code: str = Field(description="The Python code to complete the task. Should consist of any helper functions or variables, the new generic function, and the function call to run it.")
+    code: str = Field(description="The Python code to complete the task. All libraries are already imported in the REPL. Should consist of any helper functions or variables, the new generic function, and the function call to run it.")
     notes: str = Field(description="Can this code run without any edits from the user? If not, why? Also, any additional notes regarding the code or it's execution, not including the external libraries mentioned previously.")
 
-    def __dict__(self):
+    def to_dict(self):
         return {
             "explain": self.explain,
             "plan": self.plan,
@@ -43,8 +44,8 @@ class ActionExecutor:
 
         You should also be sure to provide the necessary code to execute the task, and use the generic function with the desired inputs.
 
-        You can use the following API keys when necessary:
-        - News API: {news_api_key}
+        You can use the following helper variables in your code, as they will be defined in the environment where the function will be run:
+        - NEWS_API_KEY: An API key for the News API.
 
         At each round of conversation, I will provide you with 
         Task: the task that you must complete by writing a Python function.
@@ -62,8 +63,7 @@ class ActionExecutor:
             template=SYSTEM_TEMPLATE,
             input_variables=[],
             partial_variables={
-                "format_instructions": self.output_parser.get_format_instructions(),
-                "news_api_key": os.getenv("NEWS_API_KEY"),
+                "format_instructions": self.output_parser.get_format_instructions()
             }
         )
 
@@ -91,14 +91,19 @@ class ActionExecutor:
 
             response = requests.request("POST", url, headers=headers, data=payload)
 
-            return response.text
+            return response.json()['organic']
 
+        news_api_key = os.getenv("NEWS_API_KEY")
+        print(news_api_key)
 
-        self.repl = PythonREPLTool(python_repl=PythonREPL(
+        self.repl = PythonREPL(
             globals={
-                "search_web": search_web
+                "search_web": search_web,
+                "NEWS_API_KEY": news_api_key,
+                "json": json,
+                "requests": requests
             }
-        ))
+        )
         self.action_pending = action_pending
         self.queue = action_queue
 
@@ -107,7 +112,7 @@ class ActionExecutor:
         res = self.chain.run(message)
         res = self.output_parser.parse(res)
         out = self.repl.run(res.code)
-        self.queue.put({'response': res.__dict__(), 'output': out})
+        self.queue.put({'response': res.to_dict(), 'output': out})
         self.action_pending.clear()
         
 
