@@ -14,6 +14,7 @@ audio_queue = queue.Queue()
 
 # Generates an audio stream from text and adds it to the audio queue
 def enqueue_generation(text: str, voice: str):
+    print(f"Generating audio for: {text}")
     audio = generate(
         text=text,
         voice=voice,
@@ -33,7 +34,7 @@ def play_audio_from_queue(playing_audio):
 
 class AssistantCallbackHandler(BaseCallbackHandler):
 
-    def __init__(self, voice, api_key, running_event, playing_event):
+    def __init__(self, voice, api_key, running_event, playing_event, action_pending, action_queue):
         set_api_key(api_key)
         voices()
         threading.Thread(target=play_audio_from_queue, daemon=True, args=[playing_event]).start()
@@ -45,7 +46,7 @@ class AssistantCallbackHandler(BaseCallbackHandler):
             'actions': [],
             'utterances': [],
         }
-        self.output_handler = AssistantOutputHandler(voice, self.log_info, self.playing_event)
+        self.output_handler = AssistantOutputHandler(voice, self.log_info, self.playing_event, action_pending, action_queue)
 
     def save_log(self):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -92,7 +93,7 @@ class NewTermCallbackHandler(BaseCallbackHandler):
 
 
 class AssistantOutputHandler():
-    def __init__(self, voice, log_info, is_playing):
+    def __init__(self, voice, log_info, is_playing, action_pending, action_queue):
         self.voice = voice
         self.token_buffer = []
         self.sentence_buffer = ""
@@ -101,7 +102,8 @@ class AssistantOutputHandler():
         self.action_buffer = "<ACTION>"
         self.is_playing = is_playing
         self.log_info = log_info
-        self.action_executor = ActionExecutor(callback=NewTermCallbackHandler())
+        self.action_pending = action_pending
+        self.action_executor = ActionExecutor(callbacks=NewTermCallbackHandler(), action_pending=action_pending, action_queue=action_queue)
 
     def start(self):
         pass
@@ -139,6 +141,7 @@ class AssistantOutputHandler():
                 self.is_action = False
                 is_action_end = False
                 self.send_action(self.action_buffer)
+                self.action_buffer = ''
             return True
         
         return False

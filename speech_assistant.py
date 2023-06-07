@@ -32,6 +32,8 @@ init()
 
 # Global variables for locks and queues
 audio_queue = queue.Queue()
+action_queue = queue.Queue()
+
 
 # Global variables for recording
 frames = []
@@ -42,6 +44,7 @@ interrupt_event = threading.Event()
 is_running = threading.Event()
 is_playing = threading.Event()
 is_recording = threading.Event()
+action_pending = threading.Event()
 
 # Spinner for loading symbol
 def spinning_cursor():
@@ -164,7 +167,7 @@ def get_voice_input():
 
 memory=ConversationBufferWindowMemory(return_messages=True)
 
-agent_chat_chain = load_assistant_agent(memory, AssistantCallbackHandler(voice='BBC', api_key=os.getenv('XILABS_API_KEY'), running_event=is_running, playing_event=is_playing))
+agent_chat_chain = load_assistant_agent(memory, AssistantCallbackHandler(voice='BBC', api_key=os.getenv('XILABS_API_KEY'), running_event=is_running, playing_event=is_playing, action_pending=action_pending, action_queue=action_queue))
 
 def save_context_to_file(context, file_path='context.json'):
     with open(file_path, 'w') as f:
@@ -179,8 +182,27 @@ def load_context_from_file(file_path='context.json'):
     return context
 
 # Start the spinning icon display thread
-threading.Thread(target=display_spinning_icon, daemon=True).start()
+# threading.Thread(target=display_spinning_icon, daemon=True).start()
 
+action_response_template = """<SYSTEM>
+    Action Response:
+    {action_response}
+
+    Notes:
+    {notes}
+</SYSTEM>"""
+
+def get_action_output():
+    while True:
+        if action_queue.empty():
+            time.sleep(0.2)
+        else:
+            (out, notes) = action_queue.get()
+            res = action_response_template.format(action_response=out, notes=notes)
+            print(Fore.RED +res+ Fore.RESET)
+            print()
+            return res
+            
 
 context = {}
 
@@ -188,12 +210,15 @@ def start_voice_input():
     state = None
     while True:
         context = load_context_from_file()
-        transcript = get_voice_input()
-        (prepped_transcript, edits, state) = prep_all_inputs(transcript, memory, context, state)
-        edits_str = "|".join(k for k in edits.keys() if edits[k] == True)
-        print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
-        print()
-        response = agent_chat_chain.run(prepped_transcript)
+        if not action_pending.is_set() and action_queue.empty():
+            transcript = get_voice_input()
+            (prepped_input, edits, state) = prep_all_inputs(transcript, memory, context, state)
+            edits_str = "|".join(k for k in edits.keys() if edits[k] == True)
+            print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
+            print()
+        else:
+            prepped_input = get_action_output()
+        response = agent_chat_chain.run(prepped_input)
         while True:
             if is_playing_audio():
                 time.sleep(0.1)
