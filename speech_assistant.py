@@ -178,7 +178,7 @@ def load_context_from_file(file_path='context.json'):
         with open(file_path, 'r') as f:
             context = json.load(f)
     else:
-        context = {}
+        context = {'tools': []}
     return context
 
 # Start the spinning icon display thread
@@ -192,16 +192,17 @@ action_response_template = """<SYSTEM>
     {notes}
 </SYSTEM>"""
 
-def get_action_output():
+def get_action_output(context):
     while True:
         if action_queue.empty():
             time.sleep(0.2)
         else:
-            (out, notes) = action_queue.get()
-            res = action_response_template.format(action_response=out, notes=notes)
-            print(Fore.RED +res+ Fore.RESET)
+            res = action_queue.get() # dict with 'output' and 'response'
+            res_msg = action_response_template.format(action_response=res['output'], notes=res['response']['notes'])
+            context['tools'].append(res)
+            print(Fore.RED +res_msg+ Fore.RESET)
             print()
-            return res
+            return res_msg
             
 
 context = {}
@@ -217,7 +218,7 @@ def start_voice_input():
             print(Fore.CYAN + "Human:" + Fore.RESET, transcript, Fore.RED + "Edits:" + Fore.RESET, edits_str)
             print()
         else:
-            prepped_input = get_action_output()
+            prepped_input = get_action_output(context)
         response = agent_chat_chain.run(prepped_input)
         while True:
             if is_playing_audio():
