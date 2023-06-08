@@ -13,8 +13,8 @@ from action.action_executor import ActionExecutor
 audio_queue = queue.Queue()
 
 # Generates an audio stream from text and adds it to the audio queue
-def enqueue_generation(text: str, voice: str):
-    print(f"Generating audio for: {text}")
+def enqueue_generation(text: str, voice: str, display_queue: queue.Queue):
+    display_queue.put(text)
     audio = generate(
         text=text,
         voice=voice,
@@ -34,7 +34,7 @@ def play_audio_from_queue(playing_audio):
 
 class AssistantCallbackHandler(BaseCallbackHandler):
 
-    def __init__(self, voice, api_key, running_event, playing_event, action_pending, action_queue):
+    def __init__(self, voice, api_key, running_event, playing_event, action_pending, action_queue, display_queue):
         set_api_key(api_key)
         voices()
         threading.Thread(target=play_audio_from_queue, daemon=True, args=[playing_event]).start()
@@ -46,7 +46,7 @@ class AssistantCallbackHandler(BaseCallbackHandler):
             'actions': [],
             'utterances': [],
         }
-        self.output_handler = AssistantOutputHandler(voice, self.log_info, self.playing_event, action_pending, action_queue)
+        self.output_handler = AssistantOutputHandler(voice, self.log_info, self.playing_event, action_pending, action_queue, display_queue)
 
     def save_log(self):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -93,7 +93,7 @@ class NewTermCallbackHandler(BaseCallbackHandler):
 
 
 class AssistantOutputHandler():
-    def __init__(self, voice, log_info, is_playing, action_pending, action_queue):
+    def __init__(self, voice, log_info, is_playing, action_pending, action_queue, display_queue):
         self.voice = voice
         self.token_buffer = []
         self.sentence_buffer = ""
@@ -103,6 +103,7 @@ class AssistantOutputHandler():
         self.is_playing = is_playing
         self.log_info = log_info
         self.action_pending = action_pending
+        self.display_queue = display_queue
         self.action_executor = ActionExecutor(callbacks=NewTermCallbackHandler(), action_pending=action_pending, action_queue=action_queue)
 
     def start(self):
@@ -156,7 +157,7 @@ class AssistantOutputHandler():
                     self.sentence_buffer += ''.join(self.token_buffer) # Add it to the sentence buffer
                     self.token_buffer.clear()
                 self.sentence_buffer += " I'm writing the code to the window now." # Add a message to the sentence buffer
-                enqueue_generation(self.sentence_buffer, self.voice) # Generate and play the sentence buffer
+                enqueue_generation(self.sentence_buffer, self.voice, self.display_queue) # Generate and play the sentence buffer
                 self.sentence_buffer = "" # Clear the sentence buffer
 
             else:  # If it's the end of a code snippet
@@ -183,10 +184,10 @@ class AssistantOutputHandler():
             self.sentence_buffer += ''.join(self.token_buffer)
             self.token_buffer.clear()
         if self.sentence_buffer and audio_queue.qsize() == 0 and not self.is_playing.is_set():
-            enqueue_generation(self.sentence_buffer, self.voice)
+            enqueue_generation(self.sentence_buffer, self.voice, self.display_queue)
             self.sentence_buffer = ""
 
     def flush(self):
         if self.sentence_buffer:
-            enqueue_generation(self.sentence_buffer, self.voice)
+            enqueue_generation(self.sentence_buffer, self.voice, self.display_queue)
             self.sentence_buffer = ""

@@ -45,8 +45,9 @@ class ActionExecutor:
 
         You should also be sure to provide the necessary code to execute the task, and use the generic function with the desired inputs.
 
-        You can use the following helper variables in your code, as they will be defined in the environment where the function will be run:
+        You can use the following helper variables and functions in your code, as they will be defined in the environment where the function will be run:
         - NEWS_API_KEY: An API key for the News API.
+        - search_web(query: str) -> dict: A function that searches the web for the given query, and returns a list of search results. The function returns a list of dictionaries, where each dictionary has the following keys: 'title', 'link', 'snippet'.
 
         At each round of conversation, I will provide you with 
         Task: the task that you must complete by writing a Python function.

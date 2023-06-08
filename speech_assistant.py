@@ -32,10 +32,11 @@ init()
 
 # Global variables for locks and queues
 audio_queue = queue.Queue()
+audio_display_queue = queue.Queue()
 action_queue = queue.Queue()
 
 
-# Global variables for recording
+# Global variables for recording and displaying
 frames = []
 p = None
 stream = None
@@ -45,6 +46,7 @@ is_running = threading.Event()
 is_playing = threading.Event()
 is_recording = threading.Event()
 action_pending = threading.Event()
+display_buffer = []
 
 # Spinner for loading symbol
 def spinning_cursor():
@@ -70,11 +72,13 @@ def is_running_llm():
 
 def display_spinning_icon():
     while True:
+        if audio_display_queue.qsize() > 0:
+            display_buffer.append(audio_display_queue.get())
         if is_playing_audio():
-            sys.stdout.write(Fore.GREEN + 'Generating... ' + next(spinner))  # Move cursor up one line
+            sys.stdout.write(Fore.GREEN + 'Assistant: ' + Fore.RESET + Fore.GREEN + ' Generating... ' + next(spinner))  # Move cursor up one line
             sys.stdout.flush()
             time.sleep(0.1)
-            sys.stdout.write('\b' * (len('Generating... ') + 1) + Fore.RESET)  # Move cursor down one line after erasing
+            sys.stdout.write('\b' * (len('Assistant: ' + Fore.RESET + Fore.GREEN + ' Generating... ') + 1) + Fore.RESET)  # Move cursor down one line after erasing
         if is_recording_audio():
             sys.stdout.write(Fore.LIGHTBLUE_EX + 'Recording... ' + next(spinner))  # Move cursor up one line
             sys.stdout.flush()
@@ -167,7 +171,7 @@ def get_voice_input():
 
 memory=ConversationBufferWindowMemory(return_messages=True)
 
-agent_chat_chain = load_assistant_agent(memory, AssistantCallbackHandler(voice='BBC', api_key=os.getenv('XILABS_API_KEY'), running_event=is_running, playing_event=is_playing, action_pending=action_pending, action_queue=action_queue))
+agent_chat_chain = load_assistant_agent(memory, AssistantCallbackHandler(voice='BBC', api_key=os.getenv('XILABS_API_KEY'), running_event=is_running, playing_event=is_playing, action_pending=action_pending, action_queue=action_queue, display_queue=audio_display_queue))
 
 def save_context_to_file(context, file_path='context.json'):
     with open(file_path, 'w') as f:
@@ -182,7 +186,7 @@ def load_context_from_file(file_path='context.json'):
     return context
 
 # Start the spinning icon display thread
-# threading.Thread(target=display_spinning_icon, daemon=True).start()
+threading.Thread(target=display_spinning_icon, daemon=True).start()
 
 action_response_template = """<SYSTEM>
     Action Response:
@@ -190,6 +194,11 @@ action_response_template = """<SYSTEM>
 
     Notes:
     {notes}
+
+    Notes from the System:
+    The above is the raw output from the action being run. You don't necessarily need to repeat it back to the user verbatim, but you should use it to inform your response to the user.
+    I don't remember information from previous actions, so if you use a follow-up action, you'll need to repeat any information you want to use from the previous action.
+    Be mindful that your response is being fed into a text-to-speech engine, so you may want to avoid using links or other text that may not sound good when read aloud.
 </SYSTEM>"""
 
 def get_action_output(context):
