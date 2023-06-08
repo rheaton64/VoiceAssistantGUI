@@ -13,6 +13,7 @@ import queue
 import os
 import requests
 import json
+import bs4
 
 
 class ActionResponse(BaseModel):
@@ -40,7 +41,7 @@ class ActionExecutor:
         SYSTEM_TEMPLATE="""You are a helpful assistant that writes a Python function to complete any task specified by me.
         The function should always be able to run as-is, without any modifications for the user. You should try your best to infer the user's intent, and account for any ambiguities in the task.
         The function that you write will be re-used in the future for building more complex functions. Therefore, you should make it generic and re-usable.
-        The environment where the function will be run is a REPL on my local machine, and it has access to the Internet and the Python standard library. It also already has imported the 'json' and 'requests' libraries. To install any external libraries, you must specify them in your response.
+        The environment where the function will be run is a REPL on my local machine, and it has access to the Internet and the Python standard library. It also already has imported the 'json', 'requests', and 'bs4' libraries. To install any external libraries, you must specify them in your response.
 
         You should also be sure to provide the necessary code to execute the task, and use the generic function with the desired inputs.
 
@@ -94,14 +95,14 @@ class ActionExecutor:
             return response.json()['organic']
 
         news_api_key = os.getenv("NEWS_API_KEY")
-        print(news_api_key)
 
         self.repl = PythonREPL(
-            globals={
+            _globals={
                 "search_web": search_web,
                 "NEWS_API_KEY": news_api_key,
                 "json": json,
-                "requests": requests
+                "requests": requests,
+                "bs4": bs4
             }
         )
         self.action_pending = action_pending
