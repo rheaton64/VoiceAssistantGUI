@@ -8,7 +8,7 @@ import time
 from pywinauto import Application
 from elevenlabs import generate, stream, set_api_key, voices
 from langchain.callbacks.base import BaseCallbackHandler
-from action.action_executor import ActionExecutor
+from action.action_executor_new import ActionExecutor
 
 audio_queue = queue.Queue()
 
@@ -71,27 +71,6 @@ class AssistantCallbackHandler(BaseCallbackHandler):
         self.running_event.clear()
         self.save_log()
 
-class NewTermCallbackHandler(BaseCallbackHandler):
-    def __init__(self):
-        self.cmd = 'start cmd.exe /k'
-        self.process = None
-        self.terminal = None
-        self.app = None
-
-    def on_llm_start(self, serialized, prompts, **kwargs) -> None:
-        self.process = subprocess.Popen(self.cmd, shell=True)
-        time.sleep(2)  # Give the terminal time to open
-        self.app = Application(backend='uia').connect(process=self.process.pid)
-        self.terminal = self.app.window(title_re='.*cmd.exe')
-
-    
-    def on_llm_new_token(self, token: str, **kwargs) -> None:
-        self.terminal.type_keys(token, with_spaces=True)
-
-    def on_llm_end(self, response, **kwargs) -> None:
-        pass
-
-
 class AssistantOutputHandler():
     def __init__(self, voice, log_info, is_playing, action_pending, action_queue, display_queue):
         self.voice = voice
@@ -104,7 +83,7 @@ class AssistantOutputHandler():
         self.log_info = log_info
         self.action_pending = action_pending
         self.display_queue = display_queue
-        self.action_executor = ActionExecutor(callbacks=NewTermCallbackHandler(), action_pending=action_pending, action_queue=action_queue)
+        self.action_executor = ActionExecutor(action_pending=action_pending, action_queue=action_queue)
 
     def start(self):
         pass
@@ -170,13 +149,21 @@ class AssistantOutputHandler():
                 is_code_end = False
             return True
         return False
-        
+    
+    def check_markdown(self, token):
+        if '**' in token:
+            return True
+        return False
+    
     def send_token(self, token):
 
         if self.check_code(token):
             return
         
         if self.check_action(token):
+            return
+        
+        if self.check_markdown(token):
             return
         
         self.token_buffer.append(token)

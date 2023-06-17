@@ -192,11 +192,8 @@ action_response_template = """<SYSTEM>
     Action Response:
     {action_response}
 
-    Notes:
-    {notes}
-
     Notes from the System:
-    The above is the raw output from the action being run. You don't necessarily need to repeat it back to the user verbatim, but you should use it to inform your response to the user.
+    The above is the response from the action executor. You don't necessarily need to repeat it back to the user verbatim, but you should use it to inform your response to the user.
     I don't remember information from previous actions, so if you use a follow-up action, you'll need to repeat any information you want to use from the previous action.
     Be mindful that your response is being fed into a text-to-speech engine, so you may want to avoid using links or other text that may not sound good when read aloud.
 </SYSTEM>"""
@@ -206,8 +203,8 @@ def get_action_output(context):
         if action_queue.empty():
             time.sleep(0.2)
         else:
-            res = action_queue.get() # dict with 'output' and 'response'
-            res_msg = action_response_template.format(action_response=res['output'], notes=res['response']['notes'])
+            res = action_queue.get() # dict with 'response'
+            res_msg = action_response_template.format(action_response=res['response'])
             context['tools'].append(res)
             print(Fore.RED +res_msg+ Fore.RESET)
             print()
