@@ -70,7 +70,7 @@ def load_assistant_agent(memory, callbacks):
     ])
 
     chat_chain = LLMChain(
-        llm=ChatOpenAI(temperature=0.4, model_name='gpt-4-0613', streaming=True, callbacks=[callbacks]),
+        llm=ChatOpenAI(temperature=0.4, model_name='gpt-4', streaming=True, callbacks=[callbacks]),
         prompt=prompt_template,
         memory=memory,
     )

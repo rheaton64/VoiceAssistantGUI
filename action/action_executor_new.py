@@ -61,6 +61,18 @@ class ActionExecutor:
 
             return text
         
+        def extract_hyperlinks(url):
+            response = requests.get(url)
+            soup = bs4.BeautifulSoup(response.text, 'html.parser')
+
+            hyperlinks = []
+            for link in soup.find_all('a'):
+                href = link.get('href')
+                if href is not None:
+                    hyperlinks.append(href)
+
+            return hyperlinks
+        
         tools = [
             Tool(
                 name="search_web",
@@ -70,9 +82,16 @@ class ActionExecutor:
             Tool(
                 name="extract_webpage_contents",
                 func=extract_webpage_contents,
-                description="Extracts the text contents of a webpage."
+                description="Extracts the text contents of a webpage. Always put http:// before the url."
+            ),
+            Tool(
+                name="extract_hyperlinks",
+                func=extract_hyperlinks,
+                description="Extracts the hyperlinks from a webpage. Always put http:// before the url."
             )
         ]
+
+        
 
         self.agent_chain = initialize_agent(tools, llm, agent=AgentType.OPENAI_FUNCTIONS, verbose=True)
         #self.agent_chain = AgentExecutor.from_agent_and_tools(FunctionAgent.from_llm_and_tools(llm, tools, prompt=prompt, verbose=True), tools)
