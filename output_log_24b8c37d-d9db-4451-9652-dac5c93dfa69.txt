@@ -1,0 +1,121 @@
+Sure, here is a Python function that uses regular expressions to extract content inside markdown code blocks:
+
+```python
+import re
+
+def extract_code_blocks(text):
+    """
+    Function to extract content inside markdown code blocks from a given text.
+
+    Args:
+        text (str): The text from which to extract code blocks.
+
+    Returns:
+        list: A list of strings, each representing a code block.
+    """
+    pattern = r"```(.*?)```"
+    code_blocks = re.findall(pattern, text, re.DOTALL)
+    return code_blocks
+```
+
+Now, let's define a custom tool using the BaseFunction class:
+
+```python
+from typing import Type
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+from langchain.tools import BaseTool
+
+class ExtractCodeBlocksTool(BaseFunction):
+    class ExtractCodeBlocksInput(BaseModel):
+        text: str = Field(description="The text from which to extract code blocks")
+
+    def __init__(self):
+        super().__init__("extract_code_blocks")
+        self.args_schema = self.ExtractCodeBlocksInput
+
+    def run(self, text: str):
+        code_blocks = extract_code_blocks(text)
+        return {"code_blocks": code_blocks}
+
+    def _arun(self, text: str):
+        raise NotImplementedError("extract_code_blocks does not support async")
+```
+
+This tool can be used by an AI agent to execute the `extract_code_blocks` function. The function takes a string as input and returns a list of strings, each representing a code block. The tool is easy to use, general, and robust. It can be used in a variety of situations where you need to extract code blocks from a text.Here are the test cases that I will consider:
+
+1. Test with a text that contains multiple code blocks.
+2. Test with a text that contains a single code block.
+3. Test with a text that does not contain any code blocks.
+4. Test with a text that contains nested code blocks.
+5. Test with a text that contains code blocks with different languages.
+6. Test with a text that contains empty code blocks.
+7. Test with a text that contains code blocks with special characters.
+8. Test with a text that contains code blocks with long lines of code.
+9. Test with a text that contains code blocks with multiline code.
+10. Test with a text that contains code blocks with comments.
+
+Here are the unit tests:
+
+```python
+import unittest
+from ExtractCodeBlocksTool import ExtractCodeBlocksTool
+
+class TestExtractCodeBlocksTool(unittest.TestCase):
+    def setUp(self):
+        self.tool = ExtractCodeBlocksTool()
+
+    def test_multiple_code_blocks(self):
+        text = "```python\nprint('Hello, world!')\n```\n```javascript\nconsole.log('Hello, world!');\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('Hello, world!')", "javascript\nconsole.log('Hello, world!');"])
+
+    def test_single_code_block(self):
+        text = "```python\nprint('Hello, world!')\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('Hello, world!')"])
+
+    def test_no_code_blocks(self):
+        text = "Hello, world!"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], [])
+
+    def test_nested_code_blocks(self):
+        text = "```python\nprint('```Hello, world!```')\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('```Hello, world!```')"])
+
+    def test_different_languages(self):
+        text = "```python\nprint('Hello, world!')\n```\n```javascript\nconsole.log('Hello, world!');\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('Hello, world!')", "javascript\nconsole.log('Hello, world!');"])
+
+    def test_empty_code_blocks(self):
+        text = "``````"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], [""])
+
+    def test_special_characters(self):
+        text = "```python\nprint('@#$%^&*()')\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('@#$%^&*()')"])
+
+    def test_long_lines_of_code(self):
+        text = "```python\nprint('Hello, world!')*100\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('Hello, world!')*100"])
+
+    def test_multiline_code(self):
+        text = "```python\nprint('Hello,')\nprint('world!')\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\nprint('Hello,')\nprint('world!')"])
+
+    def test_comments(self):
+        text = "```python\n# This is a comment\nprint('Hello, world!')\n```"
+        result = self.tool.run(text)
+        self.assertEqual(result["code_blocks"], ["python\n# This is a comment\nprint('Hello, world!')"])
+
+if __name__ == '__main__':
+    unittest.main()
+```
+These tests cover all the cases that I have considered.

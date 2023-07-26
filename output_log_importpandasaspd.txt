@@ -1,0 +1,114 @@
+Sure, here is a function that merges two CSV files based on a common column using pandas library in Python. Along with the function, I have also created a custom tool that can be used by an AI agent to execute this function.
+
+```python
+import pandas as pd
+
+def merge_csv_files(file1, file2, common_column):
+    """
+    This function merges two CSV files based on a common column.
+
+    Parameters:
+    file1 (str): The path to the first CSV file.
+    file2 (str): The path to the second CSV file.
+    common_column (str): The common column based on which the CSV files will be merged.
+
+    Returns:
+    DataFrame: A pandas DataFrame containing the merged data.
+    """
+    df1 = pd.read_csv(file1)
+    df2 = pd.read_csv(file2)
+
+    merged_df = pd.merge(df1, df2, on=common_column)
+    return merged_df
+```
+
+Now, let's define the custom tool for the above function.
+
+```python
+from typing import Type
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+
+class MergeCSVTool(BaseFunction):
+    class MergeCSVInput(BaseModel):
+        file1: str = Field(description="The path to the first CSV file.")
+        file2: str = Field(description="The path to the second CSV file.")
+        common_column: str = Field(description="The common column based on which the CSV files will be merged.")
+
+    def __init__(self):
+        super().__init__("merge_csv_files")
+        self.args_schema = self.MergeCSVInput
+
+    def run(self, file1: str, file2: str, common_column: str):
+        merged_df = merge_csv_files(file1, file2, common_column)
+        return merged_df
+
+    def _arun(self, file1: str, file2: str, common_column: str):
+        raise NotImplementedError("merge_csv_files does not support async")
+```
+
+This tool can be used by an AI agent to call the `merge_csv_files` function. The `MergeCSVInput` class defines the input schema for the function, and the `run` method calls the function with the provided arguments. The `_arun` method raises a `NotImplementedError` because the function does not support asynchronous execution.Here are the test cases that I will consider:
+
+1. Test if the tool correctly merges two CSV files with a common column.
+2. Test if the tool raises an error when one or both of the input files do not exist.
+3. Test if the tool raises an error when the common column does not exist in one or both of the CSV files.
+4. Test if the tool raises an error when the input files are not in CSV format.
+5. Test if the tool raises an error when the common column is not a string.
+6. Test if the tool raises an error when the common column is an empty string.
+7. Test if the tool raises an error when the common column contains only whitespace.
+8. Test if the tool raises an error when the common column is None.
+
+Here are the unit tests for the `MergeCSVTool`:
+
+```python
+import pandas as pd
+import pytest
+from pandas.testing import assert_frame_equal
+from MergeCSVTool import MergeCSVTool
+
+def test_merge_csv_files():
+    tool = MergeCSVTool()
+    df1 = pd.DataFrame({'A': ['A0', 'A1', 'A2', 'A3'],
+                        'B': ['B0', 'B1', 'B2', 'B3'],
+                        'key': ['K0', 'K1', 'K0', 'K1']})
+    df2 = pd.DataFrame({'C': ['C0', 'C1'],
+                        'D': ['D0', 'D1'],
+                        'key': ['K0', 'K1']})
+    df1.to_csv('file1.csv', index=False)
+    df2.to_csv('file2.csv', index=False)
+    result = tool.run('file1.csv', 'file2.csv', 'key')
+    expected = pd.DataFrame({'A': ['A0', 'A2', 'A1', 'A3'],
+                             'B': ['B0', 'B2', 'B1', 'B3'],
+                             'key': ['K0', 'K0', 'K1', 'K1'],
+                             'C': ['C0', 'C0', 'C1', 'C1'],
+                             'D': ['D0', 'D0', 'D1', 'D1']})
+    assert_frame_equal(result, expected)
+
+@pytest.mark.parametrize("file1, file2, common_column", [
+    ('nonexistent.csv', 'file2.csv', 'key'),
+    ('file1.csv', 'nonexistent.csv', 'key'),
+    ('nonexistent.csv', 'nonexistent.csv', 'key')
+])
+def test_nonexistent_files(file1, file2, common_column):
+    tool = MergeCSVTool()
+    with pytest.raises(FileNotFoundError):
+        tool.run(file1, file2, common_column)
+
+def test_nonexistent_common_column():
+    tool = MergeCSVTool()
+    with pytest.raises(KeyError):
+        tool.run('file1.csv', 'file2.csv', 'nonexistent')
+
+def test_invalid_file_format():
+    tool = MergeCSVTool()
+    with pytest.raises(pd.errors.ParserError):
+        tool.run('file1.txt', 'file2.csv', 'key')
+
+@pytest.mark.parametrize("common_column", [123, None, '', ' '])
+def test_invalid_common_column(common_column):
+    tool = MergeCSVTool()
+    with pytest.raises(ValueError):
+        tool.run('file1.csv', 'file2.csv', common_column)
+```
+
+These tests should cover all the edge cases and ensure that the `MergeCSVTool` works correctly.

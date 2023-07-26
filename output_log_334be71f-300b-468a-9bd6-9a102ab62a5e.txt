@@ -1,0 +1,89 @@
+Sure, here is the Python function for insertion sort and its corresponding tool.
+
+```python
+def insertion_sort(arr):
+    """Method to sort a list using insertion sort algorithm"""
+    
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i-1
+        while j >=0 and key < arr[j] :
+                arr[j+1] = arr[j]
+                j -= 1
+        arr[j+1] = key
+    return arr
+```
+
+Now, let's define the tool for this function.
+
+```python
+from typing import List
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+
+class InsertionSortTool(BaseFunction):
+    class InsertionSortInput(BaseModel): 
+        arr: List[int] = Field(description="List of integers to be sorted")
+
+    def __init__(self):
+        super().__init__("insertion_sort")
+        self.args_schema = self.InsertionSortInput
+
+    def run(self, arr: List[int]): 
+        sorted_arr = insertion_sort(arr)
+        return sorted_arr
+
+    def _arun(self, arr: List[int]):
+        raise NotImplementedError("insertion_sort does not support async")
+```
+
+In this code, `InsertionSortTool` is a tool that wraps the `insertion_sort` function. It defines the input schema for the function and implements the `run` method to call the function. The `_arun` method is not implemented because the `insertion_sort` function does not support asynchronous execution.Here are the cases that I will consider for testing:
+
+1. Test with an empty list.
+2. Test with a list of one element.
+3. Test with a list of two elements in ascending order.
+4. Test with a list of two elements in descending order.
+5. Test with a list of multiple elements in random order.
+6. Test with a list of multiple elements in ascending order.
+7. Test with a list of multiple elements in descending order.
+8. Test with a list of multiple identical elements.
+
+Here are the unit tests for the `InsertionSortTool`:
+
+```python
+import unittest
+from tool import InsertionSortTool
+
+class TestInsertionSortTool(unittest.TestCase):
+    def setUp(self):
+        self.tool = InsertionSortTool()
+
+    def test_empty_list(self):
+        self.assertEqual(self.tool.run([]), [])
+
+    def test_single_element_list(self):
+        self.assertEqual(self.tool.run([1]), [1])
+
+    def test_two_element_list_ascending(self):
+        self.assertEqual(self.tool.run([1, 2]), [1, 2])
+
+    def test_two_element_list_descending(self):
+        self.assertEqual(self.tool.run([2, 1]), [1, 2])
+
+    def test_multiple_element_list_random(self):
+        self.assertEqual(self.tool.run([5, 1, 4, 2, 8]), [1, 2, 4, 5, 8])
+
+    def test_multiple_element_list_ascending(self):
+        self.assertEqual(self.tool.run([1, 2, 3, 4, 5]), [1, 2, 3, 4, 5])
+
+    def test_multiple_element_list_descending(self):
+        self.assertEqual(self.tool.run([5, 4, 3, 2, 1]), [1, 2, 3, 4, 5])
+
+    def test_multiple_identical_elements(self):
+        self.assertEqual(self.tool.run([5, 5, 5, 5, 5]), [5, 5, 5, 5, 5])
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+These tests cover all the cases that I have considered. They ensure that the `InsertionSortTool` correctly sorts lists of various lengths and orders.

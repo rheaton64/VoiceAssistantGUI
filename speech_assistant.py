@@ -194,7 +194,7 @@ action_response_template = """<SYSTEM>
 
     Notes from the System:
     The above is the response from the action executor. You don't necessarily need to repeat it back to the user verbatim, but you should use it to inform your response to the user.
-    I don't remember information from previous actions, so if you use a follow-up action, you'll need to repeat any information you want to use from the previous action.
+    The system doesn't remember information from previous actions, so if you use a follow-up action, you'll need to repeat any information you want to use from the previous action.
     Be mindful that your response is being fed into a text-to-speech engine, so you may want to avoid using links or other text that may not sound good when read aloud.
 </SYSTEM>"""
 

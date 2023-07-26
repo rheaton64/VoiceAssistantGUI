@@ -1,0 +1,109 @@
+Sure, here is a Python function that uses the `os` module to read the file structure of a directory and its corresponding tool.
+
+```python
+import os
+
+def read_directory_structure(directory_path):
+    """
+    Function to read the file structure of a directory.
+    It returns a dictionary where keys are directory paths and values are lists of files in those directories.
+
+    Args:
+        directory_path (str): The path of the directory to read.
+
+    Returns:
+        dict: A dictionary representing the file structure.
+    """
+    file_structure = {}
+
+    for root, dirs, files in os.walk(directory_path):
+        file_structure[root] = files
+
+    return file_structure
+```
+
+And here is the tool:
+
+```python
+from typing import Type
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+
+class DirectoryStructureTool(BaseFunction):
+    class DirectoryStructureInput(BaseModel):
+        directory_path: str = Field(description="The path of the directory to read")
+
+    def __init__(self):
+        super().__init__("read_directory_structure")
+        self.args_schema = self.DirectoryStructureInput
+
+    def run(self, directory_path: str):
+        file_structure = read_directory_structure(directory_path)
+        return file_structure
+
+    def _arun(self, directory_path: str):
+        raise NotImplementedError("read_directory_structure does not support async")
+```
+
+This function and tool can be used to read the file structure of any directory. The function returns a dictionary where keys are directory paths and values are lists of files in those directories. The tool wraps this function and provides a schema for the function's arguments.Here are the cases that I will test for:
+
+1. A valid directory path is provided.
+2. An invalid directory path is provided.
+3. A directory path that points to a file, not a directory, is provided.
+4. A directory path that points to an empty directory is provided.
+5. A directory path that points to a directory with subdirectories is provided.
+
+Here are the unit tests:
+
+```python
+import unittest
+from unittest.mock import patch
+from DirectoryStructureTool import DirectoryStructureTool
+
+class TestDirectoryStructureTool(unittest.TestCase):
+    def setUp(self):
+        self.tool = DirectoryStructureTool()
+
+    @patch('os.walk')
+    def test_valid_directory(self, mock_walk):
+        mock_walk.return_value = [
+            ('/path/to/directory', ['subdirectory'], ['file1', 'file2'])
+        ]
+        result = self.tool.run('/path/to/directory')
+        self.assertEqual(result, {'/path/to/directory': ['file1', 'file2']})
+
+    def test_invalid_directory(self):
+        with self.assertRaises(FileNotFoundError):
+            self.tool.run('/invalid/path')
+
+    @patch('os.walk')
+    def test_file_as_directory(self, mock_walk):
+        mock_walk.return_value = []
+        result = self.tool.run('/path/to/file')
+        self.assertEqual(result, {})
+
+    @patch('os.walk')
+    def test_empty_directory(self, mock_walk):
+        mock_walk.return_value = [
+            ('/path/to/empty/directory', [], [])
+        ]
+        result = self.tool.run('/path/to/empty/directory')
+        self.assertEqual(result, {'/path/to/empty/directory': []})
+
+    @patch('os.walk')
+    def test_directory_with_subdirectories(self, mock_walk):
+        mock_walk.return_value = [
+            ('/path/to/directory', ['subdirectory'], ['file1', 'file2']),
+            ('/path/to/directory/subdirectory', [], ['file3'])
+        ]
+        result = self.tool.run('/path/to/directory')
+        self.assertEqual(result, {
+            '/path/to/directory': ['file1', 'file2'],
+            '/path/to/directory/subdirectory': ['file3']
+        })
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+These tests cover all the cases that I have considered. They use the `unittest.mock.patch` decorator to mock the `os.walk` function, which allows us to simulate different file structures without needing to create actual files and directories.

@@ -1,0 +1,136 @@
+Sure, here is a function that executes Python code contained in a string. Please note that executing code from a string can be dangerous if the string content is not controlled or checked, as it can lead to code injection attacks.
+
+```python
+def execute_code(code_string):
+    """
+    Function to execute Python code contained in a string.
+    WARNING: Use this function with caution. Executing code from a string can be dangerous
+    if the string content is not controlled or checked, as it can lead to code injection attacks.
+
+    Args:
+        code_string (str): The Python code to execute, as a string.
+
+    Returns:
+        Any: The output of the executed code.
+    """
+    exec_globals = {}
+    exec_locals = {}
+    exec(code_string, exec_globals, exec_locals)
+    return exec_locals
+```
+
+And here is the corresponding tool:
+
+```python
+from typing import Any
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+
+class ExecuteCodeTool(BaseFunction):
+    class ExecuteCodeInput(BaseModel):
+        code_string: str = Field(description="The Python code to execute, as a string.")
+
+    def __init__(self):
+        super().__init__("execute_code")
+        self.args_schema = self.ExecuteCodeInput
+
+    def run(self, code_string: str) -> Any:
+        return execute_code(code_string)
+
+    def _arun(self, code_string: str):
+        raise NotImplementedError("execute_code does not support async")
+```
+
+This tool takes a string of Python code as input and executes it, returning the output of the executed code. Please remember to use this tool with caution, as executing arbitrary code can be dangerous.
+
+=== NEW FUNCTION ===
+def execute_code(code_string):
+    """
+    Function to execute Python code contained in a string.
+    WARNING: Use this function with caution. Executing code from a string can be dangerous
+    if the string content is not controlled or checked, as it can lead to code injection attacks.
+
+    Args:
+        code_string (str): The Python code to execute, as a string.
+
+    Returns:
+        Any: The output of the executed code.
+    """
+    exec_globals = {}
+    exec_locals = {}
+    exec(code_string, exec_globals, exec_locals)
+    return exec_locals
+
+
+=== NEW TOOL ===
+from typing import Any
+from pydantic import BaseModel, Field
+from functions.BaseFunction import BaseFunction
+
+class ExecuteCodeTool(BaseFunction):
+    class ExecuteCodeInput(BaseModel):
+        code_string: str = Field(description="The Python code to execute, as a string.")
+
+    def __init__(self):
+        super().__init__("execute_code")
+        self.args_schema = self.ExecuteCodeInput
+
+    def run(self, code_string: str) -> Any:
+        return execute_code(code_string)
+
+    def _arun(self, code_string: str):
+        raise NotImplementedError("execute_code does not support async")
+
+
+Here are the test cases that I will consider:
+
+1. Test with a simple Python code string that should execute without any errors.
+2. Test with a Python code string that should raise an error when executed.
+3. Test with a Python code string that defines a variable, to check if the variable is correctly returned in the exec_locals dictionary.
+4. Test with a Python code string that defines a function, to check if the function is correctly returned in the exec_locals dictionary.
+5. Test with a Python code string that imports a module, to check if the module is correctly returned in the exec_locals dictionary.
+6. Test with an empty string, which should not raise any errors.
+7. Test with a non-string input, which should raise a TypeError.
+
+Here are the corresponding unit tests:
+
+```python
+import unittest
+from ExecuteCodeTool import ExecuteCodeTool
+
+class TestExecuteCodeTool(unittest.TestCase):
+    def setUp(self):
+        self.tool = ExecuteCodeTool()
+
+    def test_simple_code(self):
+        result = self.tool.run("a = 1 + 2")
+        self.assertEqual(result['a'], 3)
+
+    def test_code_with_error(self):
+        with self.assertRaises(SyntaxError):
+            self.tool.run("a = 1 + ")
+
+    def test_code_defines_variable(self):
+        result = self.tool.run("b = 'hello'")
+        self.assertEqual(result['b'], 'hello')
+
+    def test_code_defines_function(self):
+        result = self.tool.run("def f(x): return x * x")
+        self.assertEqual(result['f'](3), 9)
+
+    def test_code_imports_module(self):
+        result = self.tool.run("import math")
+        self.assertEqual(result['math'].sqrt(4), 2)
+
+    def test_empty_string(self):
+        result = self.tool.run("")
+        self.assertEqual(result, {})
+
+    def test_non_string_input(self):
+        with self.assertRaises(TypeError):
+            self.tool.run(123)
+
+if __name__ == '__main__':
+    unittest.main()
+```
+These tests should cover all the main cases that the ExecuteCodeTool can encounter.
